@@ -75,7 +75,7 @@ export default function DashboardClient() {
           ) : (
             <p className="text-muted-foreground font-body">No recent transactions.</p>
           )}
-          <Link href="/transactions" legacyBehavior>
+          <Link href="/transactions">
             <Button variant="link" className="mt-4 p-0 font-body">View all transactions</Button>
           </Link>
         </CardContent>
