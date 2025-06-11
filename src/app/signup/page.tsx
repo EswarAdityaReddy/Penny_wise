@@ -1,13 +1,19 @@
+
 // src/app/signup/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase/config';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SignUpPage() {
   const [email, setEmail] = useState('');
@@ -15,35 +21,52 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuthContext();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace('/dashboard');
+    }
+  }, [user, authLoading, router]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    setIsLoading(true);
 
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
-      setIsLoading(false);
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password should be at least 6 characters.');
       return;
     }
 
-    // Placeholder for Firebase sign-up logic
-    console.log('Attempting to sign up with:', { email, password });
-    // In a real app, you would call Firebase auth here:
-    // try {
-    //   await createUserWithEmailAndPassword(auth, email, password);
-    //   router.push('/dashboard'); // Or to a profile setup page
-    // } catch (err: any) {
-    //   setError(err.message);
-    // } finally {
-    //   setIsLoading(false);
-    // }
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setError("Sign up functionality is not yet implemented. This is a UI placeholder.");
-    setIsLoading(false);
+    setIsLoading(true);
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      toast({ title: 'Account Created!', description: 'Welcome to PennyWise! Redirecting to dashboard...' });
+      // The onAuthStateChanged listener in AuthContext will handle user state
+      // and redirect if necessary, or user will be picked up by useEffect.
+      // Forcing redirect here for immediate feedback after signup.
+      router.push('/dashboard'); 
+    } catch (err: any) {
+      setError(err.message || 'Failed to create account.');
+      toast({ title: 'Sign Up Failed', description: err.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (authLoading || (!authLoading && user)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">

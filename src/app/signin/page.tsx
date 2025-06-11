@@ -1,42 +1,61 @@
+
 // src/app/signin/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase/config';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuthContext();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace('/dashboard');
+    }
+  }, [user, authLoading, router]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    // Placeholder for Firebase sign-in logic
-    console.log('Attempting to sign in with:', { email, password });
-    // In a real app, you would call Firebase auth here:
-    // try {
-    //   await signInWithEmailAndPassword(auth, email, password);
-    //   router.push('/dashboard');
-    // } catch (err: any) {
-    //   setError(err.message);
-    // } finally {
-    //   setIsLoading(false);
-    // }
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setError("Sign in functionality is not yet implemented. This is a UI placeholder.");
-    setIsLoading(false);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      toast({ title: 'Signed In!', description: 'Welcome back! Redirecting to dashboard...' });
+      // The onAuthStateChanged listener in AuthContext will handle user state.
+      // Forcing redirect here for immediate feedback.
+      router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign in.');
+      toast({ title: 'Sign In Failed', description: err.message || 'Check your credentials and try again.', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
   };
+  
+  if (authLoading || (!authLoading && user)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -87,10 +106,6 @@ export default function SignInPage() {
               Sign Up
             </Link>
           </p>
-          {/* Optional: Add Forgot Password link here */}
-          {/* <Link href="/forgot-password" className="text-sm text-primary hover:underline font-body">
-            Forgot password?
-          </Link> */}
         </CardFooter>
       </Card>
     </div>
