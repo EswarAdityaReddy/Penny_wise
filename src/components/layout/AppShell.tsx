@@ -19,11 +19,8 @@ import {
 import { Logo } from '@/components/icons/Logo';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { LayoutDashboard, ListPlus, Tags, Target, Settings, LogOut, Moon, Sun } from 'lucide-react';
-// import { useTheme } from 'next-themes'; // Assuming next-themes is or will be installed for theme toggling
+import { LayoutDashboard, ListPlus, Tags, Target, Settings, LogOut, Moon, Sun, CreditCard } from 'lucide-react';
 
-// For now, next-themes is not part of the scaffolding. Let's make a simple toggle.
-// A more robust solution would be to integrate next-themes.
 const ThemeToggle = () => {
   const [currentTheme, setCurrentTheme] = React.useState('light');
 
@@ -55,6 +52,7 @@ const navItems = [
   { href: '/transactions', label: 'Transactions', icon: ListPlus },
   { href: '/categories', label: 'Categories', icon: Tags },
   { href: '/budgets', label: 'Budgets', icon: Target },
+  { href: '/payments', label: 'Payments', icon: CreditCard },
 ];
 
 export default function AppShell({ children }: { children: ReactNode }) {
@@ -87,30 +85,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
           </SidebarContent>
         </ScrollArea>
         <SidebarFooter className="border-t border-sidebar-border">
-           {/* <SidebarMenu>
-            <SidebarMenuItem>
-              <Link href="/settings">
-                <SidebarMenuButton tooltip={{ children: "Settings", className:"font-body"}} className="font-body">
-                  <Settings />
-                  <span>Settings</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </SidebarMenu> */}
           <div className="p-2 flex justify-between items-center">
              <ThemeToggle />
-            {/* User avatar/logout can be added here */}
-            {/* <Button variant="ghost" size="icon" aria-label="Log out">
-              <LogOut className="h-5 w-5" />
-            </Button> */}
           </div>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-2 sm:px-6 sm:static sm:h-auto sm:border-0 sm:bg-transparent py-4">
           <SidebarTrigger className="sm:hidden" />
           <h1 className="font-headline text-xl font-semibold capitalize">
-            {pathname.split('/').pop() || 'Dashboard'}
+            {pathname.split('/').pop()?.replace('-', ' ') || 'Dashboard'}
           </h1>
         </header>
         <main className="flex-1 p-2 sm:px-6 sm:py-0 space-y-4">
