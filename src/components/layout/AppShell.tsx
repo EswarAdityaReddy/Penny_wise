@@ -89,7 +89,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <SidebarFooter className="border-t border-sidebar-border">
            {/* <SidebarMenu>
             <SidebarMenuItem>
-              <Link href="/settings" legacyBehavior passHref>
+              <Link href="/settings">
                 <SidebarMenuButton tooltip={{ children: "Settings", className:"font-body"}} className="font-body">
                   <Settings />
                   <span>Settings</span>
@@ -113,7 +113,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             {pathname.split('/').pop() || 'Dashboard'}
           </h1>
         </header>
-        <main className="flex-1 p-4 sm:px-6 sm:py-0 space-y-4">
+        <main className="flex-1 p-2 sm:px-6 sm:py-0 space-y-4">
           {children}
         </main>
       </SidebarInset>
