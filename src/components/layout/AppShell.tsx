@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import React from 'react'; // Added React import
+import React from 'react'; 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -20,7 +20,7 @@ import { Logo } from '@/components/icons/Logo';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LayoutDashboard, ListPlus, Tags, Target, Settings, LogOut, Moon, Sun } from 'lucide-react';
-import { useTheme } from 'next-themes'; // Assuming next-themes is or will be installed for theme toggling
+// import { useTheme } from 'next-themes'; // Assuming next-themes is or will be installed for theme toggling
 
 // For now, next-themes is not part of the scaffolding. Let's make a simple toggle.
 // A more robust solution would be to integrate next-themes.
@@ -71,7 +71,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <Link href={item.href} legacyBehavior passHref>
+                  <Link href={item.href}>
                     <SidebarMenuButton
                       isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
                       tooltip={{ children: item.label, className: "font-body" }}
