@@ -1,7 +1,8 @@
+// src/components/layout/AppShell.tsx
 "use client";
 
 import type { ReactNode } from 'react';
-import React from 'react'; 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -19,14 +20,17 @@ import {
 import { Logo } from '@/components/icons/Logo';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { LayoutDashboard, ListPlus, Tags, Target, Settings, LogOut, Moon, Sun, CreditCard } from 'lucide-react';
+import { LayoutDashboard, ListPlus, Tags, Target, CreditCard, Moon, Sun, LogIn, UserPlus } from 'lucide-react';
 
 const ThemeToggle = () => {
   const [currentTheme, setCurrentTheme] = React.useState('light');
 
   React.useEffect(() => {
-    const isDark = document.documentElement.classList.contains('dark');
-    setCurrentTheme(isDark ? 'dark' : 'light');
+    // Ensure this only runs on the client
+    if (typeof window !== 'undefined') {
+      const isDark = document.documentElement.classList.contains('dark');
+      setCurrentTheme(isDark ? 'dark' : 'light');
+    }
   }, []);
 
   const toggleTheme = () => {
@@ -55,8 +59,12 @@ const navItems = [
   { href: '/payments', label: 'Payments', icon: CreditCard },
 ];
 
+// Placeholder for auth state, replace with actual context later
+const useAuth = () => ({ user: null, signOut: () => console.log("Signing out...") });
+
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { user, signOut } = useAuth(); // Placeholder
 
   return (
     <SidebarProvider defaultOpen>
@@ -84,8 +92,27 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </SidebarMenu>
           </SidebarContent>
         </ScrollArea>
-        <SidebarFooter className="border-t border-sidebar-border">
-          <div className="p-2 flex justify-between items-center">
+        <SidebarFooter className="border-t border-sidebar-border p-2 space-y-2">
+           {/* Auth links - to be made conditional later */}
+            {!user ? (
+              <>
+                <Link href="/signin" passHref legacyBehavior>
+                  <Button variant="outline" className="w-full justify-start font-body">
+                    <LogIn className="mr-2 h-4 w-4" /> Sign In
+                  </Button>
+                </Link>
+                <Link href="/signup" passHref legacyBehavior>
+                  <Button variant="outline" className="w-full justify-start font-body">
+                     <UserPlus className="mr-2 h-4 w-4" /> Sign Up
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <Button variant="outline" onClick={signOut} className="w-full justify-start font-body">
+                <LogOut className="mr-2 h-4 w-4" /> Sign Out
+              </Button>
+            )}
+          <div className="flex justify-start items-center">
              <ThemeToggle />
           </div>
         </SidebarFooter>
