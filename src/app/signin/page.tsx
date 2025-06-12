@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, UserPlus } from 'lucide-react'; // Added UserPlus
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
@@ -59,28 +59,47 @@ export default function SignInPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace('/dashboard');
+      // If user is logged in, check if their profile (displayName) is set.
+      // If not, redirect to profile setup. Otherwise, to dashboard.
+      if (user.displayName) {
+        router.replace('/dashboard');
+      } else {
+        router.replace('/profile/setup'); // Or dashboard if profile setup is optional on sign-in
+      }
     }
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!recaptchaVerifierRef.current && recaptchaContainerRef.current) {
+    if (!recaptchaVerifierRef.current && recaptchaContainerRef.current && !isOtpSent) {
       recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
         'size': 'invisible',
         'callback': (response: any) => {
           // reCAPTCHA solved, allow signInWithPhoneNumber.
         },
         'expired-callback': () => {
-          // Response expired. Ask user to solve reCAPTCHA again.
           toast({ title: 'reCAPTCHA Expired', description: 'Please try sending OTP again.', variant: 'destructive' });
         }
       });
     }
-    // Cleanup reCAPTCHA on unmount
     return () => {
         recaptchaVerifierRef.current?.clear();
     };
-  }, [auth, toast]);
+  }, [auth, toast, isOtpSent]);
+
+  const redirectToProfileSetupOrDashboard = (loggedInUser: any) => {
+    if (loggedInUser.displayName) { // Basic check if profile might be set up
+      router.push('/dashboard');
+    } else {
+      // Check if it's a new user creation scenario (metadata might help)
+      const metadata = loggedInUser.metadata;
+      if (metadata && metadata.creationTime === metadata.lastSignInTime) {
+        // Likely a new user from Google/Phone who hasn't set up profile via email path
+        router.push('/profile/setup');
+      } else {
+        router.push('/dashboard'); // Existing user, assume profile is okay or handle elsewhere
+      }
+    }
+  };
 
 
   const handleEmailSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -89,9 +108,9 @@ export default function SignInPage() {
     setIsLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({ title: 'Signed In!', description: 'Welcome back! Redirecting to dashboard...' });
-      router.push('/dashboard');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      toast({ title: 'Signed In!', description: 'Welcome back! Redirecting...' });
+      redirectToProfileSetupOrDashboard(userCredential.user);
     } catch (err: any) {
       setError(err.message || 'Failed to sign in with email.');
       toast({ title: 'Sign In Failed', description: err.message || 'Check your credentials and try again.', variant: 'destructive' });
@@ -104,13 +123,18 @@ export default function SignInPage() {
     setError(null);
     setIsLoading(true);
     if (!recaptchaVerifierRef.current) {
-      setError("reCAPTCHA verifier not initialized.");
-      toast({ title: 'OTP Error', description: 'reCAPTCHA not ready. Please refresh.', variant: 'destructive'});
-      setIsLoading(false);
-      return;
+       // Attempt to re-initialize if not present
+      if (recaptchaContainerRef.current) {
+        recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {'size': 'invisible'});
+      } else {
+        setError("reCAPTCHA verifier not initialized.");
+        toast({ title: 'OTP Error', description: 'reCAPTCHA not ready. Please refresh.', variant: 'destructive'});
+        setIsLoading(false);
+        return;
+      }
     }
     try {
-      const formattedPhoneNumber = `+${phoneNumber.replace(/\D/g, '')}`; // Ensure E.164 format, e.g., +11234567890
+      const formattedPhoneNumber = `+${phoneNumber.replace(/\D/g, '')}`; 
       const confirmation = await signInWithPhoneNumber(auth, formattedPhoneNumber, recaptchaVerifierRef.current);
       setConfirmationResult(confirmation);
       setIsOtpSent(true);
@@ -118,12 +142,12 @@ export default function SignInPage() {
     } catch (err: any) {
       setError(err.message || 'Failed to send OTP.');
       toast({ title: 'OTP Send Failed', description: err.message || 'Please check the phone number and try again.', variant: 'destructive' });
-      recaptchaVerifierRef.current.render().then(widgetId => {
-        // @ts-ignore
-        if (window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
-           window.grecaptcha.reset(widgetId);
-        }
-      });
+      // Reset reCAPTCHA to allow retrying
+      if (typeof window !== 'undefined' && (window as any).grecaptcha && recaptchaVerifierRef.current) {
+         recaptchaVerifierRef.current.render().then(function(widgetId) {
+            (window as any).grecaptcha.reset(widgetId);
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -139,9 +163,9 @@ export default function SignInPage() {
       return;
     }
     try {
-      await confirmationResult.confirm(otp);
+      const userCredential = await confirmationResult.confirm(otp);
       toast({ title: 'Signed In!', description: 'Successfully signed in with phone number! Redirecting...' });
-      router.push('/dashboard');
+      redirectToProfileSetupOrDashboard(userCredential.user);
     } catch (err: any) {
       setError(err.message || 'Failed to verify OTP.');
       toast({ title: 'OTP Verification Failed', description: err.message || 'Invalid OTP or an error occurred.', variant: 'destructive' });
@@ -155,9 +179,9 @@ export default function SignInPage() {
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
       toast({ title: 'Signed In!', description: 'Successfully signed in with Google! Redirecting...' });
-      router.push('/dashboard');
+      redirectToProfileSetupOrDashboard(userCredential.user);
     } catch (err: any) {
       setError(err.message || 'Failed to sign in with Google.');
       toast({ title: 'Google Sign In Failed', description: err.message || 'Could not sign in with Google. Please try again.', variant: 'destructive' });
@@ -166,7 +190,7 @@ export default function SignInPage() {
     }
   };
   
-  if (authLoading || (!authLoading && user)) {
+  if (authLoading || (!authLoading && user)) { // Keep showing loader if user exists, useEffect will redirect
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -178,12 +202,29 @@ export default function SignInPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader>
-          <CardTitle className="font-headline text-2xl text-center">Sign In</CardTitle>
+          <CardTitle className="font-headline text-2xl text-center">Sign In to PennyWise</CardTitle>
           <CardDescription className="font-body text-center">
-            Welcome back to PennyWise.
+            Access your account or create a new one.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <Link href="/signup" passHref>
+            <Button variant="default" className="w-full font-body mb-4">
+              <UserPlus className="mr-2 h-4 w-4" /> Create New Account
+            </Button>
+          </Link>
+          
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground font-body">
+                Or sign in with
+              </span>
+            </div>
+          </div>
+
           <form onSubmit={handleEmailSignIn} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -221,7 +262,7 @@ export default function SignInPage() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground font-body">
-                Or continue with
+                Or other methods
               </span>
             </div>
           </div>
@@ -275,13 +316,8 @@ export default function SignInPage() {
           </div>
           <div ref={recaptchaContainerRef}></div> {/* Invisible reCAPTCHA container */}
         </CardContent>
-        <CardFooter className="flex-col items-center space-y-2">
-          <p className="text-sm text-muted-foreground font-body">
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" className="font-medium text-primary hover:underline">
-              Sign Up
-            </Link>
-          </p>
+        <CardFooter className="flex-col items-center space-y-2 pt-6">
+           {/* The link to Sign Up is now primarily handled by the button at the top */}
         </CardFooter>
       </Card>
     </div>

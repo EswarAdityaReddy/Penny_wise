@@ -50,7 +50,14 @@ export default function SignUpPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace('/dashboard');
+      // If user is already logged in, check if their profile is set up.
+      // For now, if they land here and are logged in, maybe redirect to profile setup or dashboard.
+      // This logic can be refined: if profile is complete, go to dashboard, else profile/setup.
+      if (user.displayName) { // Basic check, ideally check Firestore for full profile
+         router.replace('/dashboard');
+      } else {
+         router.replace('/profile/setup');
+      }
     }
   }, [user, authLoading, router]);
 
@@ -72,8 +79,8 @@ export default function SignUpPage() {
     setIsLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      toast({ title: 'Account Created!', description: 'Welcome to PennyWise! Redirecting to dashboard...' });
-      router.push('/dashboard'); 
+      toast({ title: 'Account Created!', description: 'Welcome to PennyWise! Lets set up your profile.' });
+      router.push('/profile/setup'); 
     } catch (err: any) {
       setError(err.message || 'Failed to create account.');
       toast({ title: 'Sign Up Failed', description: err.message || 'Please try again.', variant: 'destructive' });
@@ -88,8 +95,8 @@ export default function SignUpPage() {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      toast({ title: 'Account Created!', description: 'Successfully signed up with Google! Redirecting...' });
-      router.push('/dashboard');
+      toast({ title: 'Account Created!', description: 'Successfully signed up with Google! Lets set up your profile.' });
+      router.push('/profile/setup');
     } catch (err: any) {
       setError(err.message || 'Failed to sign up with Google.');
       toast({ title: 'Google Sign Up Failed', description: err.message || 'Could not sign up with Google. Please try again.', variant: 'destructive' });
@@ -98,7 +105,7 @@ export default function SignUpPage() {
     }
   };
 
-  if (authLoading || (!authLoading && user)) {
+  if (authLoading || (!authLoading && user)) { // Keep showing loader if user exists, useEffect will redirect
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
