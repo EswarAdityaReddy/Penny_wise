@@ -42,7 +42,6 @@ export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFor
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestedAITags, setSuggestedAITags] = useState<string[]>([]);
   
-  // Store original transaction data for updates
   const [originalTransactionForUpdate, setOriginalTransactionForUpdate] = useState<Transaction | null>(null);
 
 
@@ -65,10 +64,8 @@ export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFor
 
   useEffect(() => {
     if (initialData) {
-      // Find the full original transaction from context if initialData (which might be partial) is provided
       const fullInitial = transactions.find(t => t.id === initialData.id) || initialData;
       setOriginalTransactionForUpdate(fullInitial);
-      // Reset form with potentially fuller initialData from context
       reset({
         ...fullInitial,
         amount: Math.abs(fullInitial.amount),
@@ -123,7 +120,15 @@ export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFor
     try {
       let newOrUpdatedTransaction;
       if (initialData && originalTransactionForUpdate) {
-        newOrUpdatedTransaction = { ...originalTransactionForUpdate, ...transactionPayload, id: initialData.id };
+        // Ensure amount is handled correctly if type changes
+        const finalAmount = transactionPayload.amount; // Already positive from form
+        
+        newOrUpdatedTransaction = { 
+            ...originalTransactionForUpdate, 
+            ...transactionPayload, 
+            id: initialData.id,
+            amount: finalAmount // Ensure amount is correctly set
+        };
         await updateTransaction(newOrUpdatedTransaction, originalTransactionForUpdate);
         toast({ title: "Transaction Updated", description: "Your transaction has been successfully updated and summary refreshed." });
       } else {
@@ -138,7 +143,7 @@ export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFor
       
       reset(defaultValues); 
       setSuggestedAITags([]);
-      setOriginalTransactionForUpdate(null); // Clear original transaction after submission
+      setOriginalTransactionForUpdate(null); 
       if (newOrUpdatedTransaction) {
         onSubmitSuccess?.(newOrUpdatedTransaction);
       }
@@ -285,4 +290,3 @@ export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFor
     </Card>
   );
 }
-

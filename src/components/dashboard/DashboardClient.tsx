@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 export default function DashboardClient() {
   const { transactions, categories, budgetGoals, getCategoryById, getTransactionsByCategory, summary, loadingData } = useData();
 
-  // Values now come from summary in DataContext
+  // Values now come from summary in DataContext, which is synced with RTDB
   const totalIncome = summary.totalIncome;
   const totalExpenses = summary.totalExpenses;
   const balance = summary.currentBalance;

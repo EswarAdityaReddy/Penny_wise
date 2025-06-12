@@ -155,7 +155,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setSummary(summaryData);
       } else {
         // If summary doesn't exist upon listener attachment, initialize it.
-        // This might happen if initializeSummary failed or was slow.
         set(ref(rtdb, `users/${userId}/summary`), { totalIncome: 0, totalExpenses: 0, currentBalance: 0 });
       }
       setLoadingData(false); // Data loading complete
@@ -173,16 +172,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [user, toast, seedDefaultCategories, initializeSummary]);
 
-  const updateSummaryInDB = async (userId: string, newSummary: UserSummary) => {
-    try {
-      const summaryRef = ref(rtdb, `users/${userId}/summary`);
-      await set(summaryRef, newSummary);
-    } catch (error) {
-      console.error("Error updating summary in DB:", error);
-      toast({ title: "Error", description: "Could not update summary.", variant: "destructive" });
-    }
-  };
-
   const addTransaction = async (transactionData: Omit<Transaction, 'id'>): Promise<Transaction | undefined> => {
     if (!user) {
       toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" });
@@ -191,22 +180,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     try {
       const transactionsPath = `users/${user.uid}/transactions`;
       const newItemRef = push(ref(rtdb, transactionsPath));
-      const newTransaction = { id: newItemRef.key as string, ...transactionData };
+      const newTransactionId = newItemRef.key as string;
+      const newTransaction = { id: newTransactionId, ...transactionData };
       
-      let newTotalIncome = summary.totalIncome;
-      let newTotalExpenses = summary.totalExpenses;
-
+      const summaryRef = ref(rtdb, `users/${user.uid}/summary`);
+      const currentSummarySnapshot = await get(summaryRef);
+      let currentSummaryData = currentSummarySnapshot.val() || { totalIncome: 0, totalExpenses: 0, currentBalance: 0 };
+      
       if (newTransaction.type === 'income') {
-        newTotalIncome += newTransaction.amount;
+        currentSummaryData.totalIncome += newTransaction.amount;
       } else {
-        newTotalExpenses += newTransaction.amount;
+        currentSummaryData.totalExpenses += newTransaction.amount;
       }
-      const newCurrentBalance = newTotalIncome - newTotalExpenses;
-      const newSummaryData = { totalIncome: newTotalIncome, totalExpenses: newTotalExpenses, currentBalance: newCurrentBalance };
+      currentSummaryData.currentBalance = currentSummaryData.totalIncome - currentSummaryData.totalExpenses;
       
       const updates: Record<string, any> = {};
-      updates[`${transactionsPath}/${newTransaction.id}`] = transactionData; // Save transaction without ID in its object
-      updates[`users/${user.uid}/summary`] = newSummaryData;
+      updates[`${transactionsPath}/${newTransactionId}`] = transactionData; // Save transaction without ID in its object
+      updates[`users/${user.uid}/summary`] = currentSummaryData;
 
       await update(ref(rtdb), updates);
       return newTransaction;
@@ -226,29 +216,29 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { id, ...dataToUpdate } = updatedTransaction;
 
-      let newTotalIncome = summary.totalIncome;
-      let newTotalExpenses = summary.totalExpenses;
+      const summaryRef = ref(rtdb, `users/${user.uid}/summary`);
+      const currentSummarySnapshot = await get(summaryRef);
+      let currentSummaryData = currentSummarySnapshot.val() || { totalIncome: 0, totalExpenses: 0, currentBalance: 0 };
 
       // Revert original transaction's impact
       if (originalTransaction.type === 'income') {
-        newTotalIncome -= originalTransaction.amount;
+        currentSummaryData.totalIncome -= originalTransaction.amount;
       } else {
-        newTotalExpenses -= originalTransaction.amount;
+        currentSummaryData.totalExpenses -= originalTransaction.amount;
       }
 
       // Apply updated transaction's impact
       if (updatedTransaction.type === 'income') {
-        newTotalIncome += updatedTransaction.amount;
+        currentSummaryData.totalIncome += updatedTransaction.amount;
       } else {
-        newTotalExpenses += updatedTransaction.amount;
+        currentSummaryData.totalExpenses += updatedTransaction.amount;
       }
       
-      const newCurrentBalance = newTotalIncome - newTotalExpenses;
-      const newSummaryData = { totalIncome: newTotalIncome, totalExpenses: newTotalExpenses, currentBalance: newCurrentBalance };
+      currentSummaryData.currentBalance = currentSummaryData.totalIncome - currentSummaryData.totalExpenses;
 
       const updates: Record<string, any> = {};
       updates[`users/${user.uid}/transactions/${id}`] = dataToUpdate;
-      updates[`users/${user.uid}/summary`] = newSummaryData;
+      updates[`users/${user.uid}/summary`] = currentSummaryData;
       
       await update(ref(rtdb), updates);
     } catch (error) {
@@ -263,20 +253,20 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     try {
-      let newTotalIncome = summary.totalIncome;
-      let newTotalExpenses = summary.totalExpenses;
+      const summaryRef = ref(rtdb, `users/${user.uid}/summary`);
+      const currentSummarySnapshot = await get(summaryRef);
+      let currentSummaryData = currentSummarySnapshot.val() || { totalIncome: 0, totalExpenses: 0, currentBalance: 0 };
 
       if (transactionToDelete.type === 'income') {
-        newTotalIncome -= transactionToDelete.amount;
+        currentSummaryData.totalIncome -= transactionToDelete.amount;
       } else {
-        newTotalExpenses -= transactionToDelete.amount;
+        currentSummaryData.totalExpenses -= transactionToDelete.amount;
       }
-      const newCurrentBalance = newTotalIncome - newTotalExpenses;
-      const newSummaryData = { totalIncome: newTotalIncome, totalExpenses: newTotalExpenses, currentBalance: newCurrentBalance };
+      currentSummaryData.currentBalance = currentSummaryData.totalIncome - currentSummaryData.totalExpenses;
       
       const updates: Record<string, any> = {};
       updates[`users/${user.uid}/transactions/${transactionToDelete.id}`] = null; // Delete transaction
-      updates[`users/${user.uid}/summary`] = newSummaryData;
+      updates[`users/${user.uid}/summary`] = currentSummaryData;
 
       await update(ref(rtdb), updates);
     } catch (error) {
@@ -285,7 +275,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Categories (no changes to summary needed directly here, but deleteCategory might affect transactions)
   const addCategory = async (categoryData: Omit<Category, 'id'>): Promise<Category | undefined> => {
     if (!user) {
       toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" });
@@ -330,27 +319,27 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       
       updates[`${basePath}/categories/${categoryId}`] = null;
 
-      // Find and mark related transactions for deletion and update summary
+      const summaryRef = ref(rtdb, `${basePath}/summary`);
+      const currentSummarySnapshot = await get(summaryRef);
+      let currentSummaryData = currentSummarySnapshot.val() || { totalIncome: 0, totalExpenses: 0, currentBalance: 0 };
+
       const transactionsQuery = query(ref(rtdb, `${basePath}/transactions`), orderByChild('categoryId'), equalTo(categoryId));
       const transactionsSnapshot = await get(transactionsQuery);
       
-      let currentSummary = (await get(ref(rtdb, `${basePath}/summary`))).val() || { totalIncome: 0, totalExpenses: 0 };
-
       if (transactionsSnapshot.exists()) {
         transactionsSnapshot.forEach(childSnapshot => {
           const tx = childSnapshot.val() as Transaction;
           updates[`${basePath}/transactions/${childSnapshot.key}`] = null;
           if (tx.type === 'income') {
-            currentSummary.totalIncome -= tx.amount;
+            currentSummaryData.totalIncome -= tx.amount;
           } else {
-            currentSummary.totalExpenses -= tx.amount;
+            currentSummaryData.totalExpenses -= tx.amount;
           }
         });
       }
-      currentSummary.currentBalance = currentSummary.totalIncome - currentSummary.totalExpenses;
-      updates[`${basePath}/summary`] = currentSummary;
+      currentSummaryData.currentBalance = currentSummaryData.totalIncome - currentSummaryData.totalExpenses;
+      updates[`${basePath}/summary`] = currentSummaryData;
 
-      // Find and mark related budget goals for deletion
       const budgetGoalsQuery = query(ref(rtdb, `${basePath}/budgetGoals`), orderByChild('categoryId'), equalTo(categoryId));
       const budgetGoalsSnapshot = await get(budgetGoalsQuery);
       if (budgetGoalsSnapshot.exists()) {
@@ -367,7 +356,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Budget Goals
   const addBudgetGoal = async (budgetGoalData: Omit<BudgetGoal, 'id'>): Promise<BudgetGoal | undefined> => {
     if (!user) {
       toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" });
@@ -446,4 +434,3 @@ export const useData = () => {
   }
   return context;
 };
-

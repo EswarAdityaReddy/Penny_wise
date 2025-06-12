@@ -42,7 +42,6 @@ export function TransactionTable({ transactions, onEdit }: TransactionTableProps
 
   const handleDeleteConfirmed = async () => {
     if (transactionToDelete) {
-      // The deleteTransaction function in DataContext now handles summary updates
       await deleteTransaction(transactionToDelete); 
       toast({ title: "Transaction Deleted", description: `Transaction "${transactionToDelete.description}" has been deleted and summary updated.` });
       setTransactionToDelete(null);
@@ -125,4 +124,3 @@ export function TransactionTable({ transactions, onEdit }: TransactionTableProps
     </>
   );
 }
-
