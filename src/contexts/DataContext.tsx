@@ -5,21 +5,22 @@
 import type { ReactNode } from 'react';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Transaction, Category, BudgetGoal } from '@/lib/types';
-import { initialCategories as defaultCategoriesSeed } from '@/lib/mock-data'; // Renamed for clarity
+import { initialCategories as defaultCategoriesSeed } from '@/lib/mock-data';
 import { useAuthContext } from './AuthContext';
-import { db } from '@/lib/firebase/config';
+import { rtdb } from '@/lib/firebase/config'; // Changed to RTDB
 import { 
-  collection, 
-  doc, 
-  addDoc, 
-  setDoc, 
-  deleteDoc, 
-  onSnapshot, 
-  query, 
-  where,
-  writeBatch,
-  getDocs
-} from 'firebase/firestore';
+  ref, 
+  onValue, 
+  set, 
+  remove, 
+  push, 
+  get, 
+  child,
+  update,
+  query,
+  orderByChild,
+  equalTo
+} from 'firebase/database';
 import { useToast } from '@/hooks/use-toast';
 
 interface DataContextProps {
@@ -43,6 +44,13 @@ interface DataContextProps {
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
+// Helper to convert RTDB object to array
+const rtdbObjectToArray = <T extends { id: string }>(data: Record<string, Omit<T, 'id'>> | null): T[] => {
+  if (!data) return [];
+  return Object.entries(data).map(([id, value]) => ({ id, ...value } as T));
+};
+
+
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuthContext();
   const { toast } = useToast();
@@ -53,28 +61,26 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [loadingData, setLoadingData] = useState(true);
 
   const seedDefaultCategories = useCallback(async (userId: string) => {
-    const batch = writeBatch(db);
-    const categoriesColRef = collection(db, 'users', userId, 'categories');
+    const categoriesPath = `users/${userId}/categories`;
+    const categoriesRef = ref(rtdb, categoriesPath);
     
-    // Check if categories already exist to prevent re-seeding (simple check)
-    const existingCategoriesSnap = await getDocs(categoriesColRef);
-    if (!existingCategoriesSnap.empty) {
-      // console.log("Categories already exist, skipping seed.");
-      return;
-    }
-
-    defaultCategoriesSeed.forEach(category => {
-      // For seeding, we might not have a Firestore ID yet, so we let Firestore generate it
-      // or use a predefined ID if your seed data has them and you want consistency.
-      // For this example, letting Firestore generate IDs by not specifying doc() path
-      const docRef = doc(categoriesColRef); // Firestore will generate ID
-      batch.set(docRef, { name: category.name, icon: category.icon, color: category.color });
-    });
     try {
-      await batch.commit();
-      // console.log("Default categories seeded for user:", userId);
+      const snapshot = await get(categoriesRef);
+      if (!snapshot.exists() || !snapshot.val()) { // Check if categories path is empty or non-existent
+        const updates: Record<string, any> = {};
+        defaultCategoriesSeed.forEach(category => {
+          // Use predefined IDs from seed data for consistency
+          updates[`${categoriesPath}/${category.id}`] = { 
+            name: category.name, 
+            icon: category.icon, 
+            color: category.color 
+          };
+        });
+        await update(ref(rtdb), updates);
+        // console.log("Default categories seeded for user in RTDB:", userId);
+      }
     } catch (error) {
-      console.error("Error seeding default categories:", error);
+      console.error("Error seeding default categories in RTDB:", error);
       toast({ title: "Setup Error", description: "Could not set up default categories.", variant: "destructive" });
     }
   }, [toast]);
@@ -92,38 +98,31 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setLoadingData(true);
     const userId = user.uid;
 
-    // Seed categories if it's potentially a new user or they have no categories
-    // This is a simple check; more robust new user detection might be needed
-    const categoriesColRef = collection(db, 'users', userId, 'categories');
-    getDocs(categoriesColRef).then(snapshot => {
-      if (snapshot.empty) {
-        seedDefaultCategories(userId);
-      }
-    });
+    seedDefaultCategories(userId); // Attempt to seed categories
 
-    const unsubCategories = onSnapshot(collection(db, 'users', userId, 'categories'), (snapshot) => {
-      const cats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-      setCategories(cats);
-      setLoadingData(false);
+    const categoriesRef = ref(rtdb, `users/${userId}/categories`);
+    const unsubCategories = onValue(categoriesRef, (snapshot) => {
+      setCategories(rtdbObjectToArray<Category>(snapshot.val()));
+      setLoadingData(false); // Consider all initial data loaded after categories
     }, (error) => {
-      console.error("Error fetching categories:", error);
+      console.error("Error fetching categories from RTDB:", error);
       toast({ title: "Data Error", description: "Could not load categories.", variant: "destructive" });
       setLoadingData(false);
     });
 
-    const unsubTransactions = onSnapshot(collection(db, 'users', userId, 'transactions'), (snapshot) => {
-      const trans = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
-      setTransactions(trans);
+    const transactionsRef = ref(rtdb, `users/${userId}/transactions`);
+    const unsubTransactions = onValue(transactionsRef, (snapshot) => {
+      setTransactions(rtdbObjectToArray<Transaction>(snapshot.val()));
     }, (error) => {
-      console.error("Error fetching transactions:", error);
+      console.error("Error fetching transactions from RTDB:", error);
       toast({ title: "Data Error", description: "Could not load transactions.", variant: "destructive" });
     });
 
-    const unsubBudgetGoals = onSnapshot(collection(db, 'users', userId, 'budgetGoals'), (snapshot) => {
-      const goals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetGoal));
-      setBudgetGoals(goals);
+    const budgetGoalsRef = ref(rtdb, `users/${userId}/budgetGoals`);
+    const unsubBudgetGoals = onValue(budgetGoalsRef, (snapshot) => {
+      setBudgetGoals(rtdbObjectToArray<BudgetGoal>(snapshot.val()));
     }, (error) => {
-      console.error("Error fetching budget goals:", error);
+      console.error("Error fetching budget goals from RTDB:", error);
       toast({ title: "Data Error", description: "Could not load budget goals.", variant: "destructive" });
     });
 
@@ -136,7 +135,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
 
   const addOperation = async <T extends { id: string }, OmitId>(
-    colName: string, 
+    entityPath: string, // e.g., 'transactions', 'categories'
     data: OmitId
   ): Promise<T | undefined> => {
     if (!user) {
@@ -144,17 +143,19 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       return undefined;
     }
     try {
-      const docRef = await addDoc(collection(db, 'users', user.uid, colName), data);
-      return { id: docRef.id, ...data } as T;
+      const listRef = ref(rtdb, `users/${user.uid}/${entityPath}`);
+      const newItemRef = push(listRef); // Firebase generates a unique key
+      await set(newItemRef, data);
+      return { id: newItemRef.key as string, ...data } as T;
     } catch (error) {
-      console.error(`Error adding ${colName}:`, error);
-      toast({ title: "Error", description: `Could not add ${colName.slice(0, -1)}.`, variant: "destructive" });
+      console.error(`Error adding ${entityPath}:`, error);
+      toast({ title: "Error", description: `Could not add ${entityPath.slice(0, -1)}.`, variant: "destructive" });
       return undefined;
     }
   };
 
   const updateOperation = async <T extends { id: string }>(
-    colName: string, 
+    entityPath: string, 
     data: T
   ): Promise<void> => {
     if (!user) {
@@ -163,23 +164,25 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
     try {
       const { id, ...dataToUpdate } = data;
-      await setDoc(doc(db, 'users', user.uid, colName, id), dataToUpdate, { merge: true });
+      const itemRef = ref(rtdb, `users/${user.uid}/${entityPath}/${id}`);
+      await set(itemRef, dataToUpdate); // `set` overwrites data at the specified location
     } catch (error) {
-      console.error(`Error updating ${colName}:`, error);
-      toast({ title: "Error", description: `Could not update ${colName.slice(0, -1)}.`, variant: "destructive" });
+      console.error(`Error updating ${entityPath}:`, error);
+      toast({ title: "Error", description: `Could not update ${entityPath.slice(0, -1)}.`, variant: "destructive" });
     }
   };
 
-  const deleteOperation = async (colName: string, docId: string): Promise<void> => {
+  const deleteOperation = async (entityPath: string, docId: string): Promise<void> => {
     if (!user) {
       toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" });
       return;
     }
     try {
-      await deleteDoc(doc(db, 'users', user.uid, colName, docId));
+      const itemRef = ref(rtdb, `users/${user.uid}/${entityPath}/${docId}`);
+      await remove(itemRef);
     } catch (error) {
-      console.error(`Error deleting ${colName}:`, error);
-      toast({ title: "Error", description: `Could not delete ${colName.slice(0, -1)}.`, variant: "destructive" });
+      console.error(`Error deleting ${entityPath}:`, error);
+      toast({ title: "Error", description: `Could not delete ${entityPath.slice(0, -1)}.`, variant: "destructive" });
     }
   };
 
@@ -191,31 +194,41 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   // Categories
   const addCategory = (category: Omit<Category, 'id'>) => addOperation<Category, Omit<Category, 'id'>>('categories', category);
   const updateCategory = (updatedCategory: Category) => updateOperation<Category>('categories', updatedCategory);
+  
   const deleteCategory = async (categoryId: string) => {
     if (!user) {
-      toast({ title: "Authentication Error", description: "You must be logged in to delete a category.", variant: "destructive" });
+      toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" });
       return;
     }
     try {
-      const batch = writeBatch(db);
-      // Delete the category itself
-      const categoryDocRef = doc(db, 'users', user.uid, 'categories', categoryId);
-      batch.delete(categoryDocRef);
+      const basePath = `users/${user.uid}`;
+      const updates: Record<string, null> = {};
+      
+      // Mark category for deletion
+      updates[`${basePath}/categories/${categoryId}`] = null;
 
-      // Query and delete associated transactions
-      const transactionsQuery = query(collection(db, 'users', user.uid, 'transactions'), where('categoryId', '==', categoryId));
-      const transactionsSnap = await getDocs(transactionsQuery);
-      transactionsSnap.forEach(doc => batch.delete(doc.ref));
+      // Find and mark related transactions for deletion
+      const transactionsRef = query(ref(rtdb, `${basePath}/transactions`), orderByChild('categoryId'), equalTo(categoryId));
+      const transactionsSnapshot = await get(transactionsRef);
+      if (transactionsSnapshot.exists()) {
+        transactionsSnapshot.forEach(childSnapshot => {
+          updates[`${basePath}/transactions/${childSnapshot.key}`] = null;
+        });
+      }
 
-      // Query and delete associated budget goals
-      const budgetGoalsQuery = query(collection(db, 'users', user.uid, 'budgetGoals'), where('categoryId', '==', categoryId));
-      const budgetGoalsSnap = await getDocs(budgetGoalsQuery);
-      budgetGoalsSnap.forEach(doc => batch.delete(doc.ref));
-
-      await batch.commit();
+      // Find and mark related budget goals for deletion
+      const budgetGoalsRef = query(ref(rtdb, `${basePath}/budgetGoals`), orderByChild('categoryId'), equalTo(categoryId));
+      const budgetGoalsSnapshot = await get(budgetGoalsRef);
+      if (budgetGoalsSnapshot.exists()) {
+        budgetGoalsSnapshot.forEach(childSnapshot => {
+          updates[`${basePath}/budgetGoals/${childSnapshot.key}`] = null;
+        });
+      }
+      
+      await update(ref(rtdb), updates); // Perform multi-path delete
       toast({ title: "Category Deleted", description: "Category and associated data deleted." });
     } catch (error) {
-      console.error("Error deleting category and associated data:", error);
+      console.error("Error deleting category and associated data from RTDB:", error);
       toast({ title: "Error", description: "Could not delete category.", variant: "destructive" });
     }
   };
@@ -225,7 +238,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const updateBudgetGoal = (updatedBudgetGoal: BudgetGoal) => updateOperation<BudgetGoal>('budgetGoals', updatedBudgetGoal);
   const deleteBudgetGoal = (budgetGoalId: string) => deleteOperation('budgetGoals', budgetGoalId);
 
-  // Getter functions (operate on local state, which is kept in sync by onSnapshot)
+  // Getter functions (operate on local state, which is kept in sync by onValue)
   const getCategoryById = useCallback((id: string) => {
     return categories.find(cat => cat.id === id);
   }, [categories]);
@@ -259,5 +272,3 @@ export const useData = () => {
   }
   return context;
 };
-
-    
