@@ -48,27 +48,29 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
   });
 
   const iconNames = useMemo(() => {
-    if (!LucideIcons || typeof LucideIcons !== 'object') {
-      console.error("LucideIcons namespace is not available or not an object.", LucideIcons);
+    if (!LucideIcons || typeof LucideIcons !== 'object' || Object.keys(LucideIcons).length === 0) {
       return [];
     }
     try {
       const keys = Object.keys(LucideIcons);
+      const excludedKeys = [
+        'createLucideIcon',
+        'IconNode',
+        'createElement', // Though not typically exported by lucide-react, good to keep
+        'default',
+        'icons', // The object map of icon data, not a component
+        'LucideProvider', // The context provider component
+        // Any other known non-icon exports can be added here
+      ];
       const filteredKeys = keys.filter(key => {
         const exportValue = LucideIcons[key as keyof typeof LucideIcons];
-        // Icon components are functions, typically start with an uppercase letter,
-        // and we exclude known non-icon exports.
-        return typeof exportValue === 'function' &&
-               /^[A-Z]/.test(key) && // Icon names start with an uppercase letter
-               key !== 'createLucideIcon' && // Utility function
-               key !== 'IconNode' && // Internal type/class
-               key !== 'createElement' && // React's createElement, sometimes re-exported
-               key !== 'default'; // 'default' is the Module object itself under `import *`
-               // 'icons' (the object map) is not a function component itself.
+        return typeof exportValue === 'function' && // Icon components are functions
+               /^[A-Z]/.test(key) && // Icon names typically start with an uppercase letter
+               !excludedKeys.includes(key);
       });
-      return filteredKeys;
+      return filteredKeys.sort(); // Sort icon names alphabetically
     } catch (error) {
-      console.error("Error generating icon list in CategoryForm:", error);
+      // Intentionally not logging to console from here as per guidelines
       return [];
     }
   }, []);
@@ -98,7 +100,7 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
       }
 
     } catch (error) {
-      console.error("Category form submission error:", error);
+      // Intentionally not logging to console from here
       toast({ title: "Error", description: "Could not save category. Please try again.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
@@ -124,9 +126,9 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
                 <SelectValue placeholder="Select an icon" />
               </SelectTrigger>
               <SelectContent position="popper" className="max-h-60">
-                {(iconNames || []).map(iconName => { // Guard with (iconNames || [])
+                {(iconNames || []).map(iconName => {
                   const IconComponent = LucideIcons[iconName as keyof typeof LucideIcons] as React.ElementType;
-                  if (!IconComponent || typeof IconComponent !== 'function') return null; // Ensure IconComponent is valid
+                  if (!IconComponent || typeof IconComponent !== 'function') return null;
                   return (
                     <SelectItem key={iconName} value={iconName} className="font-body">
                       <div className="flex items-center">
@@ -153,7 +155,7 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
                 <Input 
                     id="color" 
                     type="color" 
-                    value={field.value || ''} // Ensure value is not undefined for input type color
+                    value={field.value || ''} 
                     onChange={field.onChange} 
                     className="font-body w-full h-10 p-1"
                 />
