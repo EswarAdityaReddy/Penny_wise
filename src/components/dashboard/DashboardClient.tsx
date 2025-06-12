@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function DashboardClient() {
-  const { transactions, categories, budgetGoals, getCategoryById, getTransactionsByCategory, summary, loadingData } = useData();
+  const { transactions, categories, budgetGoals, getCategoryById, summary, loadingData } = useData();
 
   // Values now come from summary in DataContext, which is synced with RTDB
   const totalIncome = summary.totalIncome;
@@ -20,6 +20,7 @@ export default function DashboardClient() {
 
   const spendingByCategory = categories
     .map((category) => {
+      // Calculate expenses for this category from all transactions
       const categoryExpenses = transactions
         .filter((t) => t.categoryId === category.id && t.type === "expense")
         .reduce((sum, t) => sum + t.amount, 0);
@@ -48,15 +49,30 @@ export default function DashboardClient() {
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      <MetricCard title="Total Income" value={totalIncome} icon={TrendingUp} className="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700" />
-      <MetricCard title="Total Expenses" value={totalExpenses} icon={TrendingDown} className="bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700" />
-      <MetricCard title="Current Balance" value={balance} icon={Wallet} className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700" />
+      <MetricCard 
+        title="Total Income" 
+        value={totalIncome} 
+        icon={TrendingUp} 
+        className="bg-emerald-50 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800" 
+      />
+      <MetricCard 
+        title="Total Expenses" 
+        value={totalExpenses} 
+        icon={TrendingDown} 
+        className="bg-rose-50 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800" 
+      />
+      <MetricCard 
+        title="Current Balance" 
+        value={balance} 
+        icon={Wallet} 
+        className="bg-sky-50 dark:bg-sky-900/40 border-sky-200 dark:border-sky-800 lg:col-span-1 md:col-span-2" 
+      />
 
       <div className="lg:col-span-2">
         <SpendingPieChart data={spendingByCategory} title="Expense Distribution" />
       </div>
 
-      <Card>
+      <Card className="lg:col-span-1 md:col-span-2">
         <CardHeader>
           <CardTitle className="font-headline">Recent Transactions</CardTitle>
         </CardHeader>
@@ -71,7 +87,7 @@ export default function DashboardClient() {
                       {getCategoryById(tx.categoryId)?.name || 'Uncategorized'} - {new Date(tx.date).toLocaleDateString()}
                     </p>
                   </div>
-                  <span className={`font-semibold font-body ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                  <span className={`font-semibold font-body ${tx.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                   </span>
                 </li>
@@ -97,15 +113,18 @@ export default function DashboardClient() {
               {budgetGoals.map(goal => {
                 const category = getCategoryById(goal.categoryId);
                 if (!category) return null;
-                const spent = getTransactionsByCategory(goal.categoryId).reduce((sum, t) => sum + t.amount, 0);
+                
+                const spent = goal.spentAmount; // Use the persisted spentAmount
                 const progress = goal.amount > 0 ? Math.min((spent / goal.amount) * 100, 100) : 0;
+                const remaining = goal.amount - spent;
+
                 return (
                   <div key={goal.id} className="p-4 border rounded-lg bg-card shadow">
                     <div className="flex justify-between items-center mb-1">
                       <h4 className="font-medium font-body">{category.name}</h4>
                       <span className="text-sm text-muted-foreground font-body">{formatCurrency(spent)} / {formatCurrency(goal.amount)}</span>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-2.5">
+                    <div className="w-full bg-muted rounded-full h-2.5 dark:bg-slate-700">
                       <div 
                         className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out" 
                         style={{ width: `${progress}%`}}
@@ -113,8 +132,8 @@ export default function DashboardClient() {
                     </div>
                      <p className={`text-xs mt-1 font-body ${progress > 100 ? 'text-destructive' : 'text-muted-foreground'}`}>
                         {progress.toFixed(0)}% of budget used. 
-                        {progress > 100 && ` Overspent by ${formatCurrency(spent - goal.amount)}`}
-                        {progress <= 100 && ` ${formatCurrency(goal.amount - spent)} remaining.`}
+                        {progress > 100 && ` Overspent by ${formatCurrency(Math.abs(remaining))}.`}
+                        {progress <= 100 && ` ${formatCurrency(remaining)} remaining.`}
                       </p>
                   </div>
                 )
