@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -35,15 +36,19 @@ interface TransactionFormProps {
 }
 
 export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFormProps) {
-  const { categories, addTransaction, updateTransaction } = useData();
+  const { categories, addTransaction, updateTransaction, transactions } = useData(); // Added transactions to get original for update
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestedAITags, setSuggestedAITags] = useState<string[]>([]);
+  
+  // Store original transaction data for updates
+  const [originalTransactionForUpdate, setOriginalTransactionForUpdate] = useState<Transaction | null>(null);
+
 
   const defaultValues = initialData ? {
     ...initialData,
-    amount: Math.abs(initialData.amount), // Amount is always positive in form
+    amount: Math.abs(initialData.amount), 
     date: new Date(initialData.date),
   } : {
     description: '',
@@ -58,6 +63,25 @@ export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFor
     defaultValues,
   });
 
+  useEffect(() => {
+    if (initialData) {
+      // Find the full original transaction from context if initialData (which might be partial) is provided
+      const fullInitial = transactions.find(t => t.id === initialData.id) || initialData;
+      setOriginalTransactionForUpdate(fullInitial);
+      // Reset form with potentially fuller initialData from context
+      reset({
+        ...fullInitial,
+        amount: Math.abs(fullInitial.amount),
+        date: new Date(fullInitial.date),
+      });
+    } else {
+      setOriginalTransactionForUpdate(null);
+      reset(defaultValues);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, transactions, reset]);
+
+
   const descriptionValue = watch("description");
 
   const handleAISuggestions = async () => {
@@ -71,7 +95,6 @@ export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFor
       const result = await suggestTransactionCategories({ transactionDescription: descriptionValue });
       if (result.suggestedCategories && result.suggestedCategories.length > 0) {
         setSuggestedAITags(result.suggestedCategories);
-        // Try to auto-select if a suggestion matches an existing category name
         const matchedCategory = categories.find(cat => 
           result.suggestedCategories.some(sug => sug.toLowerCase() === cat.name.toLowerCase())
         );
@@ -90,27 +113,35 @@ export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFor
     }
   };
 
-  const onSubmit = (data: TransactionFormData) => {
+  const onSubmit = async (data: TransactionFormData) => {
     setIsSubmitting(true);
-    const transactionData = {
+    const transactionPayload = {
       ...data,
       date: data.date.toISOString(),
     };
 
     try {
       let newOrUpdatedTransaction;
-      if (initialData) {
-        newOrUpdatedTransaction = { ...initialData, ...transactionData };
-        updateTransaction(newOrUpdatedTransaction);
-        toast({ title: "Transaction Updated", description: "Your transaction has been successfully updated." });
+      if (initialData && originalTransactionForUpdate) {
+        newOrUpdatedTransaction = { ...originalTransactionForUpdate, ...transactionPayload, id: initialData.id };
+        await updateTransaction(newOrUpdatedTransaction, originalTransactionForUpdate);
+        toast({ title: "Transaction Updated", description: "Your transaction has been successfully updated and summary refreshed." });
       } else {
-        newOrUpdatedTransaction = addTransaction(transactionData);
-        toast({ title: "Transaction Added", description: "Your transaction has been successfully added." });
+        const addedTx = await addTransaction(transactionPayload);
+        if (addedTx) {
+          newOrUpdatedTransaction = addedTx;
+          toast({ title: "Transaction Added", description: "Your transaction has been successfully added and summary refreshed." });
+        } else {
+           throw new Error("Failed to add transaction");
+        }
       }
       
-      reset(defaultValues); // Reset form
+      reset(defaultValues); 
       setSuggestedAITags([]);
-      onSubmitSuccess?.(newOrUpdatedTransaction);
+      setOriginalTransactionForUpdate(null); // Clear original transaction after submission
+      if (newOrUpdatedTransaction) {
+        onSubmitSuccess?.(newOrUpdatedTransaction);
+      }
     } catch (error) {
       console.error("Form submission error:", error);
       toast({ title: "Submission Failed", description: "There was an error saving your transaction.", variant: "destructive" });
@@ -227,7 +258,7 @@ export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFor
                 name="categoryId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                     <SelectTrigger id="categoryId" aria-invalid={errors.categoryId ? "true" : "false"} className="font-body">
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
@@ -254,3 +285,4 @@ export function TransactionForm({ onSubmitSuccess, initialData }: TransactionFor
     </Card>
   );
 }
+

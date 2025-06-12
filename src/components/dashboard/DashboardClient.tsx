@@ -1,26 +1,22 @@
+
 "use client";
 
 import { useData } from "@/contexts/DataContext";
 import { MetricCard, formatCurrency } from "./MetricCard";
 import { SpendingPieChart } from "@/components/charts/SpendingPieChart";
-import { DollarSign, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { DollarSign, TrendingDown, TrendingUp, Wallet, Loader2 } from "lucide-react";
 import type { Category } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function DashboardClient() {
-  const { transactions, categories, budgetGoals, getCategoryById, getTransactionsByCategory } = useData();
+  const { transactions, categories, budgetGoals, getCategoryById, getTransactionsByCategory, summary, loadingData } = useData();
 
-  const totalIncome = transactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const totalExpenses = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const balance = totalIncome - totalExpenses;
+  // Values now come from summary in DataContext
+  const totalIncome = summary.totalIncome;
+  const totalExpenses = summary.totalExpenses;
+  const balance = summary.currentBalance;
 
   const spendingByCategory = categories
     .map((category) => {
@@ -40,6 +36,15 @@ export default function DashboardClient() {
   const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
+
+  if (loadingData) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-4 font-body text-lg">Loading dashboard data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

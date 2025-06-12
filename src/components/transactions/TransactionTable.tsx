@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -39,10 +40,11 @@ export function TransactionTable({ transactions, onEdit }: TransactionTableProps
     setShowDeleteDialog(true);
   };
 
-  const handleDeleteConfirmed = () => {
+  const handleDeleteConfirmed = async () => {
     if (transactionToDelete) {
-      deleteTransaction(transactionToDelete.id);
-      toast({ title: "Transaction Deleted", description: `Transaction "${transactionToDelete.description}" has been deleted.` });
+      // The deleteTransaction function in DataContext now handles summary updates
+      await deleteTransaction(transactionToDelete); 
+      toast({ title: "Transaction Deleted", description: `Transaction "${transactionToDelete.description}" has been deleted and summary updated.` });
       setTransactionToDelete(null);
     }
     setShowDeleteDialog(false);
@@ -123,3 +125,4 @@ export function TransactionTable({ transactions, onEdit }: TransactionTableProps
     </>
   );
 }
+
