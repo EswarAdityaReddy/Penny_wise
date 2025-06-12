@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -42,27 +43,40 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const formDefaultValues = initialData || { name: '', icon: 'Tag', color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)` };
+
   const { control, handleSubmit, register, formState: { errors }, reset } = useForm<CategoryFormData>({
     resolver: zodResolver(categoryFormSchema),
-    defaultValues: initialData || { name: '', icon: 'Tag', color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)` },
+    defaultValues: formDefaultValues,
   });
 
-  const onSubmit = (data: CategoryFormData) => {
+  const onSubmit = async (data: CategoryFormData) => {
     setIsSubmitting(true);
+    let newOrUpdatedCategory: Category | undefined = undefined;
     try {
-      let newOrUpdatedCategory;
       if (initialData) {
-        newOrUpdatedCategory = { ...initialData, ...data };
-        updateCategory(newOrUpdatedCategory);
+        const categoryToUpdate = { ...initialData, ...data };
+        await updateCategory(categoryToUpdate);
+        newOrUpdatedCategory = categoryToUpdate; // Assign for onSubmitSuccess
         toast({ title: "Category Updated", description: `Category "${data.name}" has been updated.` });
       } else {
-        newOrUpdatedCategory = addCategory(data);
-        toast({ title: "Category Added", description: `Category "${data.name}" has been added.` });
+        const addedCategory = await addCategory(data);
+        if (addedCategory) {
+          newOrUpdatedCategory = addedCategory; // Assign for onSubmitSuccess
+          toast({ title: "Category Added", description: `Category "${data.name}" has been added.` });
+        }
+        // If addedCategory is undefined, it means addCategory failed (e.g. user not logged in, DataContext will show a toast)
       }
-      reset();
-      onSubmitSuccess?.(newOrUpdatedCategory);
+      
+      reset(formDefaultValues); // Reset form to initial/default values
+      
+      if (onSubmitSuccess && newOrUpdatedCategory) {
+        onSubmitSuccess(newOrUpdatedCategory);
+      }
+
     } catch (error) {
-      toast({ title: "Error", description: "Could not save category.", variant: "destructive" });
+      console.error("Category form submission error:", error);
+      toast({ title: "Error", description: "Could not save category. Please try again.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -107,13 +121,26 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="color" className="font-body">Color (optional hex or HSL)</Label>
-        <Input id="color" {...register('color')} type="color" className="font-body w-full h-10"/>
+        <Label htmlFor="color" className="font-body">Color</Label>
+        <Controller
+            name="color"
+            control={control}
+            defaultValue={formDefaultValues.color}
+            render={({ field }) => (
+                <Input 
+                    id="color" 
+                    type="color" 
+                    value={field.value} 
+                    onChange={field.onChange} 
+                    className="font-body w-full h-10 p-1" // Added padding for better appearance
+                />
+            )}
+        />
         {errors.color && <p className="text-sm text-destructive font-body">{errors.color.message}</p>}
       </div>
 
       <div className="flex gap-2 justify-end">
-        {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="font-body">Cancel</Button>}
+        {onCancel && <Button type="button" variant="outline" onClick={() => { reset(formDefaultValues); onCancel();}} disabled={isSubmitting} className="font-body">Cancel</Button>}
         <Button type="submit" disabled={isSubmitting} className="font-body">
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {initialData ? 'Update Category' : 'Add Category'}
