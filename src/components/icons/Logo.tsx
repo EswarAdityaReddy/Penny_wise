@@ -1,13 +1,14 @@
+
 export function Logo() {
   return (
-    <div className="flex items-center gap-2 p-2">
+    <div className="flex items-center justify-start group-data-[collapsible=icon]:justify-center">
       <svg
         width="32"
         height="32"
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="text-primary"
+        className="text-primary shrink-0"
         aria-label="PennyWise Logo"
       >
         <path
@@ -19,7 +20,9 @@ export function Logo() {
           fill="currentColor"
         />
       </svg>
-      <span className="font-headline text-xl font-semibold text-primary">PennyWise</span>
+      <span className="font-headline text-xl font-semibold text-primary ml-2 group-data-[collapsible=icon]:hidden">
+        PennyWise
+      </span>
     </div>
   );
 }
