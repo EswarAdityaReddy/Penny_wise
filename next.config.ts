@@ -18,6 +18,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/signin',
+        permanent: false, // Use false for temporary redirect, true if it's a permanent change
+      },
+    ]
+  },
 };
 
 export default nextConfig;
