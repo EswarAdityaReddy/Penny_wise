@@ -67,7 +67,7 @@ const curatedIconNames: (keyof typeof LucideIcons.icons)[] = [
   'TrendingDown', 'TrendingUp', 'Trophy', 'Truck', 'Tv', 'Umbrella', 'Undo', 'Unlink', 'Upload', 
   'User', 'Users', 'Utensils', 'UtensilsCrossed', 'Vegan', 'Video', 'Volume2', 'Wallet', 'Watch', 
   'Webhook', 'Wifi', 'Wind', 'Wine', 'Wrench', 'Yen', 'Zap', 'ZoomIn', 'ZoomOut'
-].sort() as (keyof typeof LucideIcons.icons)[];
+].sort();
 
 
 export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: CategoryFormProps) {
@@ -131,8 +131,8 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
                 <SelectValue placeholder="Select an icon" />
               </SelectTrigger>
               <SelectContent position="popper" className="max-h-60">
-                {curatedIconNames.map(iconName => {
-                  const IconComponent = LucideIcons[iconName as keyof typeof LucideIcons] as React.ElementType;
+                {(curatedIconNames || []).map(iconName => {
+                  const IconComponent = LucideIcons.icons[iconName] as React.ElementType;
                   if (!IconComponent || typeof IconComponent !== 'function') return null;
                   return (
                     <SelectItem key={iconName} value={iconName} className="font-body">
