@@ -16,12 +16,12 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
-  SidebarTrigger,
+  SidebarTrigger, // Keep SidebarTrigger
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/Logo';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { LayoutDashboard, ListPlus, Tags, Target, CreditCard, Moon, Sun, LogIn, UserPlus, LogOut, Loader2, UserCircle } from 'lucide-react'; 
+import { LayoutDashboard, ListPlus, Tags, Target, CreditCard, Moon, Sun, LogIn, UserPlus, LogOut, Loader2, UserCircle, PanelLeft } from 'lucide-react'; 
 import { useAuthContext } from '@/contexts/AuthContext'; 
 
 const ThemeToggle = () => {
@@ -63,10 +63,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, signOut, loading: authLoading } = useAuthContext(); 
 
-  const isSpecialPage = pathname === '/signin' || pathname === '/signup' || pathname === '/profile/setup';
+  const isSpecialPage = pathname === '/signin' || pathname === '/signup' || pathname === '/profile/setup' || pathname ==='/';
 
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen> {/* Default open state can be true or false based on preference */}
       {!isSpecialPage && (
         <Sidebar variant="sidebar" collapsible="icon">
           <SidebarHeader>
@@ -133,7 +133,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <SidebarInset>
         {!isSpecialPage && (
           <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-2 sm:px-6 sm:static sm:h-auto sm:border-0 sm:bg-transparent py-4">
-            <SidebarTrigger className="sm:hidden" />
+            {/* SidebarTrigger is now always visible to toggle desktop/mobile sidebar */}
+            <SidebarTrigger className="h-7 w-7" /> 
             <h1 className="font-headline text-xl font-semibold capitalize">
               {pathname.split('/').pop()?.replace('-', ' ') || 'Dashboard'}
             </h1>
@@ -146,3 +147,4 @@ export default function AppShell({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
