@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -23,11 +24,11 @@ import {
 
 interface BudgetListProps {
   budgetGoals: BudgetGoal[];
-  onEdit: (budgetGoal: BudgetGoal) => void;
+  onEdit: (budgetGoal: Omit<BudgetGoal, 'spentAmount'>) => void; // Form doesn't need spentAmount
 }
 
 export function BudgetList({ budgetGoals, onEdit }: BudgetListProps) {
-  const { getCategoryById, getTransactionsByCategory, deleteBudgetGoal } = useData();
+  const { getCategoryById, deleteBudgetGoal } = useData();
   const { toast } = useToast();
 
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -59,18 +60,7 @@ export function BudgetList({ budgetGoals, onEdit }: BudgetListProps) {
         const category = getCategoryById(goal.categoryId);
         if (!category) return null;
 
-        const spent = getTransactionsByCategory(goal.categoryId)
-          .filter(tx => {
-            // Basic filtering for monthly, can be expanded for yearly
-            if (goal.period === 'monthly') {
-              const txDate = new Date(tx.date);
-              const today = new Date();
-              return txDate.getMonth() === today.getMonth() && txDate.getFullYear() === today.getFullYear();
-            }
-            return true; // For yearly, include all for now
-          })
-          .reduce((sum, t) => sum + t.amount, 0);
-        
+        const spent = goal.spentAmount || 0; // Use spentAmount from the goal object
         const progress = goal.amount > 0 ? Math.min((spent / goal.amount) * 100, 100) : 0;
         const remaining = goal.amount - spent;
         const IconComponent = LucideIcons[category.icon as keyof typeof LucideIcons.icons] as React.ElementType || LucideIcons.Tag;
@@ -87,7 +77,10 @@ export function BudgetList({ budgetGoals, onEdit }: BudgetListProps) {
                   <CardDescription className="font-body">{goal.period.charAt(0).toUpperCase() + goal.period.slice(1)} Budget: {formatCurrency(goal.amount)}</CardDescription>
                 </div>
                  <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(goal)}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                      const { spentAmount, ...editableGoal } = goal; // Exclude spentAmount for editing
+                      onEdit(editableGoal);
+                    }}>
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">Edit</span>
                   </Button>
@@ -119,7 +112,7 @@ export function BudgetList({ budgetGoals, onEdit }: BudgetListProps) {
         <AlertDialogHeader>
           <AlertDialogTitle className="font-headline">Are you sure?</AlertDialogTitle>
           <AlertDialogDescription className="font-body">
-            This action cannot be undone. This will permanently delete the budget goal for 
+            This action cannot be undone. This will permanently delete the budget goal for
             "{getCategoryById(budgetToDelete?.categoryId || '')?.name}".
           </AlertDialogDescription>
         </AlertDialogHeader>

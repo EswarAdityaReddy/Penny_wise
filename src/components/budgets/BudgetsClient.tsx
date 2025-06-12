@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -17,10 +18,10 @@ import {
 
 export default function BudgetsClient() {
   const { budgetGoals } = useData();
-  const [editingBudget, setEditingBudget] = useState<BudgetGoal | null>(null);
+  const [editingBudget, setEditingBudget] = useState<Omit<BudgetGoal, 'spentAmount'> | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  const handleEdit = (budget: BudgetGoal) => {
+  const handleEdit = (budget: Omit<BudgetGoal, 'spentAmount'>) => {
     setEditingBudget(budget);
     setIsFormOpen(true);
   };
@@ -35,10 +36,17 @@ export default function BudgetsClient() {
     setEditingBudget(null);
   }
 
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setEditingBudget(null); // Clear editing state when dialog closes
+    }
+    setIsFormOpen(open);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <Dialog open={isFormOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
             <Button onClick={handleAddNew} className="font-body">
               <PlusCircle className="mr-2 h-4 w-4" /> Add New Budget Goal
@@ -52,7 +60,7 @@ export default function BudgetsClient() {
               <BudgetForm 
                 initialData={editingBudget} 
                 onSubmitSuccess={handleFormSubmitSuccess} 
-                onCancel={() => setIsFormOpen(false)}
+                onCancel={() => handleDialogClose(false)}
               />
             </div>
           </DialogContent>

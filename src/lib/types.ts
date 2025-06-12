@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 
 export interface Category {
@@ -23,4 +24,6 @@ export interface BudgetGoal {
   categoryId: string;
   amount: number;
   period: 'monthly' | 'yearly'; // Simplified period
+  spentAmount: number; // Amount spent towards this goal in the current period
 }
+

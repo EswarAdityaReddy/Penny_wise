@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -19,11 +20,12 @@ const budgetFormSchema = z.object({
   period: z.enum(['monthly', 'yearly']),
 });
 
-type BudgetFormData = z.infer<typeof budgetFormSchema>;
+// Form data doesn't include spentAmount, it's calculated by DataContext
+type BudgetFormData = z.infer<typeof budgetFormSchema>; 
 
 interface BudgetFormProps {
-  onSubmitSuccess?: (budget: BudgetGoal) => void;
-  initialData?: BudgetGoal | null;
+  onSubmitSuccess?: (budget: BudgetGoal) => void; // BudgetGoal includes spentAmount
+  initialData?: Omit<BudgetGoal, 'spentAmount'> | null; // Form receives data without spentAmount
   onCancel?: () => void;
 }
 
@@ -32,25 +34,38 @@ export function BudgetForm({ onSubmitSuccess, initialData, onCancel }: BudgetFor
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const defaultFormValues: BudgetFormData = initialData 
+    ? { categoryId: initialData.categoryId, amount: initialData.amount, period: initialData.period } 
+    : { categoryId: '', amount: 0, period: 'monthly' };
+
   const { control, handleSubmit, register, formState: { errors }, reset } = useForm<BudgetFormData>({
     resolver: zodResolver(budgetFormSchema),
-    defaultValues: initialData || { categoryId: '', amount: 0, period: 'monthly' },
+    defaultValues: defaultFormValues,
   });
 
-  const onSubmit = (data: BudgetFormData) => {
+  const onSubmit = async (data: BudgetFormData) => {
     setIsSubmitting(true);
     try {
-      let newOrUpdatedBudget;
+      let resultBudget;
       if (initialData) {
-        newOrUpdatedBudget = { ...initialData, ...data };
-        updateBudgetGoal(newOrUpdatedBudget);
+        // We need the ID for updating
+        const budgetToUpdate: Omit<BudgetGoal, 'spentAmount'> = { ...initialData, ...data, id: initialData.id! };
+        await updateBudgetGoal(budgetToUpdate); // updateBudgetGoal in context will handle spentAmount
         toast({ title: "Budget Updated", description: "Your budget goal has been updated." });
+        // Assuming updateBudgetGoal somehow returns the full BudgetGoal or we fetch it
+        // For now, we don't have the updated spentAmount here directly to pass to onSubmitSuccess
       } else {
-        newOrUpdatedBudget = addBudgetGoal(data);
+        resultBudget = await addBudgetGoal(data); // addBudgetGoal in context calculates spentAmount
         toast({ title: "Budget Added", description: "Your budget goal has been added." });
       }
-      reset();
-      onSubmitSuccess?.(newOrUpdatedBudget);
+      reset(defaultFormValues);
+      if (resultBudget && onSubmitSuccess) {
+         onSubmitSuccess(resultBudget); // This would require addBudgetGoal to return the full BudgetGoal with ID and spentAmount
+      } else if (onSubmitSuccess) {
+        // If updating, we might need to refetch or assume context updates trigger parent re-render
+        // For simplicity, onSubmitSuccess might not receive the budget goal on update here
+        onSubmitSuccess(undefined as any); // Or handle differently
+      }
     } catch (error) {
       toast({ title: "Error", description: "Could not save budget goal.", variant: "destructive" });
     } finally {
@@ -71,7 +86,7 @@ export function BudgetForm({ onSubmitSuccess, initialData, onCancel }: BudgetFor
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.filter(c => c.name.toLowerCase() !== 'salary').map((category) => ( // Exclude income categories like 'Salary'
+                {categories.filter(c => c.name.toLowerCase() !== 'salary').map((category) => (
                   <SelectItem key={category.id} value={category.id} className="font-body">
                     {category.name}
                   </SelectItem>
@@ -110,7 +125,7 @@ export function BudgetForm({ onSubmitSuccess, initialData, onCancel }: BudgetFor
       </div>
 
       <div className="flex gap-2 justify-end">
-        {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="font-body">Cancel</Button>}
+        {onCancel && <Button type="button" variant="outline" onClick={() => { reset(defaultFormValues); onCancel();}} disabled={isSubmitting} className="font-body">Cancel</Button>}
         <Button type="submit" disabled={isSubmitting} className="font-body">
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {initialData ? 'Update Budget' : 'Set Budget'}
