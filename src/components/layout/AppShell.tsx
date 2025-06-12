@@ -16,7 +16,7 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
-  SidebarSeparator, // Added SidebarSeparator
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/Logo';
 import { Button } from '@/components/ui/button';
@@ -44,11 +44,8 @@ const ThemeToggle = () => {
     }
   };
 
-  return (
-    <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
-      {currentTheme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-    </Button>
-  );
+  // Return only the icon based on the current theme
+  return currentTheme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />;
 };
 
 const navItems = [
@@ -64,6 +61,32 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const { user, signOut, loading: authLoading } = useAuthContext();
 
   const isSpecialPage = pathname === '/signin' || pathname === '/signup' || pathname === '/profile/setup' || pathname ==='/';
+
+  const [effectiveTheme, setEffectiveTheme] = React.useState('light');
+   React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isDark = document.documentElement.classList.contains('dark');
+      setEffectiveTheme(isDark ? 'dark' : 'light');
+       // Optional: Listen to class changes on documentElement if theme can be changed by other means
+      const observer = new MutationObserver(() => {
+        setEffectiveTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+      });
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+      return () => observer.disconnect();
+    }
+  }, []);
+
+
+  const handleThemeToggle = () => {
+    if (document.documentElement.classList.contains('dark')) {
+      document.documentElement.classList.remove('dark');
+      setEffectiveTheme('light');
+    } else {
+      document.documentElement.classList.add('dark');
+      setEffectiveTheme('dark');
+    }
+  };
+
 
   return (
     <SidebarProvider defaultOpen>
@@ -139,15 +162,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
                     </>
                   )}
                   <SidebarMenuItem>
-                    <div className="flex items-center group-data-[collapsible=icon]:justify-center px-2 py-1 w-full">
-                       <ThemeToggle />
-                       <span className="ml-2 text-sm font-body group-data-[collapsible=icon]:hidden">Toggle Theme</span>
-                    </div>
+                    <SidebarMenuButton 
+                        onClick={handleThemeToggle} 
+                        className="font-body w-full"
+                        tooltip={{ children: 'Toggle Theme', className: "font-body" }}
+                    >
+                      {effectiveTheme === 'light' ? <Moon /> : <Sun />}
+                      <span>Toggle Theme</span>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
               </SidebarMenu>
             </SidebarContent>
           </ScrollArea>
-          {/* SidebarFooter is now empty or can be removed if not needed for other purposes */}
         </Sidebar>
       )}
       <SidebarInset>
