@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -20,9 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import * as LucideIcons from 'lucide-react'; // Import all icons
-
-const iconNames = Object.keys(LucideIcons).filter(key => key !== 'createLucideIcon' && key !== 'icons' && key !== 'default' && typeof LucideIcons[key as keyof typeof LucideIcons] === 'object') as (keyof typeof LucideIcons.icons)[];
-
 
 const categoryFormSchema = z.object({
   name: z.string().min(1, 'Category name is required'),
@@ -50,6 +47,33 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
     defaultValues: formDefaultValues,
   });
 
+  const iconNames = useMemo(() => {
+    if (!LucideIcons || typeof LucideIcons !== 'object') {
+      console.error("LucideIcons namespace is not available or not an object.", LucideIcons);
+      return [];
+    }
+    try {
+      const keys = Object.keys(LucideIcons);
+      const filteredKeys = keys.filter(key => {
+        const exportValue = LucideIcons[key as keyof typeof LucideIcons];
+        // Icon components are functions, typically start with an uppercase letter,
+        // and we exclude known non-icon exports.
+        return typeof exportValue === 'function' &&
+               /^[A-Z]/.test(key) && // Icon names start with an uppercase letter
+               key !== 'createLucideIcon' && // Utility function
+               key !== 'IconNode' && // Internal type/class
+               key !== 'createElement' && // React's createElement, sometimes re-exported
+               key !== 'default'; // 'default' is the Module object itself under `import *`
+               // 'icons' (the object map) is not a function component itself.
+      });
+      return filteredKeys;
+    } catch (error) {
+      console.error("Error generating icon list in CategoryForm:", error);
+      return [];
+    }
+  }, []);
+
+
   const onSubmit = async (data: CategoryFormData) => {
     setIsSubmitting(true);
     let newOrUpdatedCategory: Category | undefined = undefined;
@@ -57,18 +81,17 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
       if (initialData) {
         const categoryToUpdate = { ...initialData, ...data };
         await updateCategory(categoryToUpdate);
-        newOrUpdatedCategory = categoryToUpdate; // Assign for onSubmitSuccess
+        newOrUpdatedCategory = categoryToUpdate;
         toast({ title: "Category Updated", description: `Category "${data.name}" has been updated.` });
       } else {
         const addedCategory = await addCategory(data);
         if (addedCategory) {
-          newOrUpdatedCategory = addedCategory; // Assign for onSubmitSuccess
+          newOrUpdatedCategory = addedCategory;
           toast({ title: "Category Added", description: `Category "${data.name}" has been added.` });
         }
-        // If addedCategory is undefined, it means addCategory failed (e.g. user not logged in, DataContext will show a toast)
       }
       
-      reset(formDefaultValues); // Reset form to initial/default values
+      reset(formDefaultValues); 
       
       if (onSubmitSuccess && newOrUpdatedCategory) {
         onSubmitSuccess(newOrUpdatedCategory);
@@ -101,9 +124,9 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
                 <SelectValue placeholder="Select an icon" />
               </SelectTrigger>
               <SelectContent position="popper" className="max-h-60">
-                {iconNames.map(iconName => {
+                {(iconNames || []).map(iconName => { // Guard with (iconNames || [])
                   const IconComponent = LucideIcons[iconName as keyof typeof LucideIcons] as React.ElementType;
-                  if (!IconComponent) return null;
+                  if (!IconComponent || typeof IconComponent !== 'function') return null; // Ensure IconComponent is valid
                   return (
                     <SelectItem key={iconName} value={iconName} className="font-body">
                       <div className="flex items-center">
@@ -130,9 +153,9 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
                 <Input 
                     id="color" 
                     type="color" 
-                    value={field.value} 
+                    value={field.value || ''} // Ensure value is not undefined for input type color
                     onChange={field.onChange} 
-                    className="font-body w-full h-10 p-1" // Added padding for better appearance
+                    className="font-body w-full h-10 p-1"
                 />
             )}
         />
