@@ -59,18 +59,18 @@ export default function SignInPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      // If user is logged in, check if their profile (displayName) is set.
-      // If not, redirect to profile setup. Otherwise, to dashboard.
       if (user.displayName) {
         router.replace('/dashboard');
       } else {
-        router.replace('/profile/setup'); // Or dashboard if profile setup is optional on sign-in
+        router.replace('/profile/setup'); 
       }
     }
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!recaptchaVerifierRef.current && recaptchaContainerRef.current && !isOtpSent) {
+    // Initialize reCAPTCHA verifier on component mount if not already initialized
+    // and the container element is available.
+    if (!recaptchaVerifierRef.current && recaptchaContainerRef.current) {
       recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
         'size': 'invisible',
         'callback': (response: any) => {
@@ -81,22 +81,28 @@ export default function SignInPage() {
         }
       });
     }
+    // Cleanup function: clear the verifier when the component unmounts
     return () => {
-        recaptchaVerifierRef.current?.clear();
+      if (recaptchaVerifierRef.current) {
+        try {
+          recaptchaVerifierRef.current.clear();
+          recaptchaVerifierRef.current = null; // Explicitly nullify the ref
+        } catch (e) {
+            console.warn("Error clearing reCAPTCHA verifier:", e);
+        }
+      }
     };
-  }, [auth, toast, isOtpSent]);
+  }, [auth, toast]); // Dependencies: auth and toast. Removed isOtpSent.
 
   const redirectToProfileSetupOrDashboard = (loggedInUser: any) => {
-    if (loggedInUser.displayName) { // Basic check if profile might be set up
+    if (loggedInUser.displayName) { 
       router.push('/dashboard');
     } else {
-      // Check if it's a new user creation scenario (metadata might help)
       const metadata = loggedInUser.metadata;
       if (metadata && metadata.creationTime === metadata.lastSignInTime) {
-        // Likely a new user from Google/Phone who hasn't set up profile via email path
         router.push('/profile/setup');
       } else {
-        router.push('/dashboard'); // Existing user, assume profile is okay or handle elsewhere
+        router.push('/dashboard'); 
       }
     }
   };
@@ -122,16 +128,12 @@ export default function SignInPage() {
   const handleSendOtp = async () => {
     setError(null);
     setIsLoading(true);
-    if (!recaptchaVerifierRef.current) {
-       // Attempt to re-initialize if not present
-      if (recaptchaContainerRef.current) {
-        recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {'size': 'invisible'});
-      } else {
-        setError("reCAPTCHA verifier not initialized.");
+    // Ensure reCAPTCHA verifier is initialized (should be by useEffect)
+    if (!recaptchaVerifierRef.current || !recaptchaContainerRef.current) {
+        setError("reCAPTCHA verifier not initialized or container not ready. Please refresh.");
         toast({ title: 'OTP Error', description: 'reCAPTCHA not ready. Please refresh.', variant: 'destructive'});
         setIsLoading(false);
         return;
-      }
     }
     try {
       const formattedPhoneNumber = `+${phoneNumber.replace(/\D/g, '')}`; 
@@ -142,11 +144,13 @@ export default function SignInPage() {
     } catch (err: any) {
       setError(err.message || 'Failed to send OTP.');
       toast({ title: 'OTP Send Failed', description: err.message || 'Please check the phone number and try again.', variant: 'destructive' });
-      // Reset reCAPTCHA to allow retrying
-      if (typeof window !== 'undefined' && (window as any).grecaptcha && recaptchaVerifierRef.current) {
-         recaptchaVerifierRef.current.render().then(function(widgetId) {
+      if (typeof window !== 'undefined' && (window as any).grecaptcha && recaptchaVerifierRef.current?.render) {
+        try {
+            const widgetId = await recaptchaVerifierRef.current.render();
             (window as any).grecaptcha.reset(widgetId);
-        });
+        } catch (renderErr) {
+            console.warn("reCAPTCHA render/reset error after OTP send failure:", renderErr);
+        }
       }
     } finally {
       setIsLoading(false);
@@ -190,7 +194,7 @@ export default function SignInPage() {
     }
   };
   
-  if (authLoading || (!authLoading && user)) { // Keep showing loader if user exists, useEffect will redirect
+  if (authLoading || (!authLoading && user)) { 
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -323,3 +327,4 @@ export default function SignInPage() {
     </div>
   );
 }
+
