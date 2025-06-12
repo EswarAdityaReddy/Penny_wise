@@ -3,7 +3,7 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import React from 'react'; 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -11,18 +11,18 @@ import {
   Sidebar,
   SidebarHeader,
   SidebarContent,
-  SidebarFooter,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
-  SidebarTrigger, // Keep SidebarTrigger
+  SidebarTrigger,
+  SidebarSeparator, // Added SidebarSeparator
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/Logo';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { LayoutDashboard, ListPlus, Tags, Target, CreditCard, Moon, Sun, LogIn, UserPlus, LogOut, Loader2, UserCircle, PanelLeft } from 'lucide-react'; 
-import { useAuthContext } from '@/contexts/AuthContext'; 
+import { LayoutDashboard, ListPlus, Tags, Target, CreditCard, Moon, Sun, LogIn, UserPlus, LogOut, Loader2, UserCircle, PanelLeft } from 'lucide-react';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 const ThemeToggle = () => {
   const [currentTheme, setCurrentTheme] = React.useState('light');
@@ -61,12 +61,12 @@ const navItems = [
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { user, signOut, loading: authLoading } = useAuthContext(); 
+  const { user, signOut, loading: authLoading } = useAuthContext();
 
   const isSpecialPage = pathname === '/signin' || pathname === '/signup' || pathname === '/profile/setup' || pathname ==='/';
 
   return (
-    <SidebarProvider defaultOpen> {/* Default open state can be true or false based on preference */}
+    <SidebarProvider defaultOpen>
       {!isSpecialPage && (
         <Sidebar variant="sidebar" collapsible="icon">
           <SidebarHeader>
@@ -89,52 +89,71 @@ export default function AppShell({ children }: { children: ReactNode }) {
                     </Link>
                   </SidebarMenuItem>
                 ))}
+
+                <SidebarSeparator className="my-2" />
+
+                {authLoading ? (
+                  <SidebarMenuItem>
+                    <div className="flex justify-center items-center h-10 px-2">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    </div>
+                  </SidebarMenuItem>
+                ) : !user ? (
+                    <>
+                      <SidebarMenuItem>
+                        <Link href="/signin">
+                           <SidebarMenuButton className="font-body w-full">
+                            <LogIn /> Sign In
+                           </SidebarMenuButton>
+                        </Link>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <Link href="/signup">
+                           <SidebarMenuButton className="font-body w-full">
+                             <UserPlus /> Sign Up
+                           </SidebarMenuButton>
+                        </Link>
+                      </SidebarMenuItem>
+                    </>
+                  ) : (
+                    <>
+                    <SidebarMenuItem>
+                      <Link href="/profile/setup">
+                        <SidebarMenuButton 
+                            isActive={pathname === '/profile/setup'} 
+                            tooltip={{ children: 'Profile', className: "font-body" }}
+                            className="font-body w-full"
+                        >
+                          <UserCircle /> Profile
+                        </SidebarMenuButton>
+                      </Link>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                       <SidebarMenuButton onClick={signOut} className="font-body w-full">
+                        <LogOut />
+                        <span>Sign Out</span>
+                        {user.displayName && <span className="text-xs truncate ml-auto pl-1 text-muted-foreground group-data-[collapsible=icon]:hidden">{user.displayName}</span>}
+                        {!user.displayName && user.email && <span className="text-xs truncate ml-auto pl-1 text-muted-foreground group-data-[collapsible=icon]:hidden">{user.email}</span>}
+                       </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    </>
+                  )}
+                  <SidebarMenuItem>
+                    <div className="flex items-center group-data-[collapsible=icon]:justify-center px-2 py-1 w-full">
+                       <ThemeToggle />
+                       <span className="ml-2 text-sm font-body group-data-[collapsible=icon]:hidden">Toggle Theme</span>
+                    </div>
+                  </SidebarMenuItem>
               </SidebarMenu>
             </SidebarContent>
           </ScrollArea>
-          <SidebarFooter className="border-t border-sidebar-border p-2 space-y-2">
-            {authLoading ? (
-              <div className="flex justify-center items-center h-10">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-              </div>
-            ) : !user ? (
-                <>
-                  <Link href="/signin">
-                    <Button variant="outline" className="w-full justify-start font-body">
-                      <LogIn className="mr-2 h-4 w-4" /> Sign In
-                    </Button>
-                  </Link>
-                  <Link href="/signup">
-                    <Button variant="outline" className="w-full justify-start font-body">
-                      <UserPlus className="mr-2 h-4 w-4" /> Sign Up
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                <>
-                <Link href="/profile/setup">
-                  <Button variant="outline" className="w-full justify-start font-body">
-                    <UserCircle className="mr-2 h-4 w-4" /> Profile
-                  </Button>
-                </Link>
-                <Button variant="outline" onClick={signOut} className="w-full justify-start font-body">
-                  <LogOut className="mr-2 h-4 w-4" /> Sign Out
-                  {user.displayName && <span className="text-xs truncate ml-auto pl-1 text-muted-foreground">{user.displayName}</span>}
-                  {!user.displayName && user.email && <span className="text-xs truncate ml-auto pl-1 text-muted-foreground">{user.email}</span>}
-                </Button>
-                </>
-              )}
-            <div className="flex justify-start items-center">
-              <ThemeToggle />
-            </div>
-          </SidebarFooter>
+          {/* SidebarFooter is now empty or can be removed if not needed for other purposes */}
         </Sidebar>
       )}
       <SidebarInset>
         {!isSpecialPage && (
           <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-2 sm:px-6 sm:static sm:h-auto sm:border-0 sm:bg-transparent py-4">
-            {/* SidebarTrigger is now always visible to toggle desktop/mobile sidebar */}
-            <SidebarTrigger className="h-7 w-7" /> 
+            <SidebarTrigger className="h-7 w-7" />
             <h1 className="font-headline text-xl font-semibold capitalize">
               {pathname.split('/').pop()?.replace('-', ' ') || 'Dashboard'}
             </h1>
@@ -147,4 +166,3 @@ export default function AppShell({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
