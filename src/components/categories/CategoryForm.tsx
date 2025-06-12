@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -23,7 +23,7 @@ import * as LucideIcons from 'lucide-react'; // Import all icons
 
 const categoryFormSchema = z.object({
   name: z.string().min(1, 'Category name is required'),
-  icon: z.string().min(1, 'Icon is required'), // Store as string (icon name)
+  icon: z.string().min(1, 'Icon is required'), 
   color: z.string().optional(),
 });
 
@@ -34,6 +34,41 @@ interface CategoryFormProps {
   initialData?: Category | null;
   onCancel?: () => void;
 }
+
+// Curated list of common and useful Lucide icons
+const curatedIconNames: (keyof typeof LucideIcons.icons)[] = [
+  'Activity', 'Airplay', 'AlarmClock', 'AlertCircle', 'Archive', 'Award', 'Baby', 
+  'BadgeCheck', 'BaggageClaim', 'Banknote', 'BarChart', 'Bell', 'Bike', 'Bitcoin', 
+  'Book', 'BookOpen', 'Bookmark', 'Briefcase', 'Brush', 'Building', 'Bus', 'Cake', 
+  'Calculator', 'Calendar', 'Camera', 'Car', 'Carrot', 'Cat', 'CheckCircle', 'ChefHat', 
+  'Cherry', 'Church', 'CircleDollarSign', 'Clipboard', 'Clock', 'Cloud', 'Coffee', 
+  'Coins', 'Compass', 'Computer', 'Construction', 'Contact', 'CreditCard', 'Crop', 
+  'Crown', 'CupSoda', 'Currency', 'Database', 'Diamond', 'Dog', 'DollarSign', 
+  'Download', 'Drama', 'Dumbbell', 'Edit', 'Egg', 'Eraser', 'Euro', 'Eye', 
+  'Factory', 'FerrisWheel', 'File', 'Film', 'Filter', 'Fish', 'Flag', 'Flame', 
+  'FlaskConical', 'Flower', 'Folder', 'Footprints', 'Forklift', 'Fuel', 'Gamepad2', 
+  'Gem', 'Gift', 'GraduationCap', 'Grape', 'Grid', 'Hammer', 'HandCoins', 'HandHeart', 
+  'Handshake', 'HardDrive', 'HardHat', 'Headphones', 'Heart', 'HeartPulse', 'HelpCircle', 
+  'HelpingHand', 'Home', 'Hotel', 'Hourglass', 'IceCream', 'Image', 'Inbox', 'IndianRupee', 
+  'Key', 'Keyboard', 'Landmark', 'Laptop', 'Laugh', 'Layers', 'LayoutGrid', 'Library', 
+  'LifeBuoy', 'Lightbulb', 'LineChart', 'Link', 'List', 'Loader', 'Lock', 'LogIn', 'LogOut', 
+  'Luggage', 'Mail', 'Map', 'MapPin', 'Martini', 'Medal', 'Megaphone', 'Menu', 'MessageCircle', 
+  'Mic', 'Milk', 'MinusCircle', 'Monitor', 'Moon', 'MoreHorizontal', 'Mountain', 'Mouse', 
+  'Music', 'Navigation', 'Newspaper', 'Nut', 'Package', 'Palette', 'Paperclip', 'ParkingCircle', 
+  'PartyPopper', 'PauseCircle', 'Pen', 'Percent', 'PersonStanding', 'Phone', 'PictureInPicture', 
+  'PieChart', 'PiggyBank', 'Pin', 'Pizza', 'Plane', 'PlayCircle', 'Plug', 'PlusCircle', 'Pocket', 
+  'Podcast', 'PoundSterling', 'Power', 'Printer', 'Puzzle', 'QrCode', 'Quote', 'Receipt', 
+  'Recycle', 'Redo', 'RefreshCcw', 'Refrigerator', 'Repeat', 'Reply', 'Rocket', 'Rss', 
+  'Ruler', 'Save', 'Scale', 'School', 'Scissors', 'ScreenShare', 'Search', 'Send', 'Server', 
+  'Settings', 'Share2', 'Sheet', 'Shield', 'ShieldCheck', 'Ship', 'ShoppingBag', 'ShoppingCart', 
+  'Shovel', 'ShowerHead', 'Smartphone', 'Smile', 'Snowflake', 'Sparkles', 'Speaker', 'Sprout', 
+  'Star', 'Store', 'Sun', 'Sunrise', 'Sunset', 'SwissFranc', 'Table', 'Tablet', 'Tag', 'Target', 
+  'Tent', 'Terminal', 'Ticket', 'Timer', 'ToggleLeft', 'ToyBrick', 'Train', 'Trash2', 'TreePine', 
+  'TrendingDown', 'TrendingUp', 'Trophy', 'Truck', 'Tv', 'Umbrella', 'Undo', 'Unlink', 'Upload', 
+  'User', 'Users', 'Utensils', 'UtensilsCrossed', 'Vegan', 'Video', 'Volume2', 'Wallet', 'Watch', 
+  'Webhook', 'Wifi', 'Wind', 'Wine', 'Wrench', 'Yen', 'Zap', 'ZoomIn', 'ZoomOut'
+].sort() as (keyof typeof LucideIcons.icons)[];
+
 
 export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: CategoryFormProps) {
   const { addCategory, updateCategory } = useData();
@@ -46,35 +81,6 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
     resolver: zodResolver(categoryFormSchema),
     defaultValues: formDefaultValues,
   });
-
-  const iconNames = useMemo(() => {
-    if (!LucideIcons || typeof LucideIcons !== 'object' || Object.keys(LucideIcons).length === 0) {
-      return [];
-    }
-    try {
-      const keys = Object.keys(LucideIcons);
-      const excludedKeys = [
-        'createLucideIcon',
-        'IconNode',
-        'createElement', // Though not typically exported by lucide-react, good to keep
-        'default',
-        'icons', // The object map of icon data, not a component
-        'LucideProvider', // The context provider component
-        // Any other known non-icon exports can be added here
-      ];
-      const filteredKeys = keys.filter(key => {
-        const exportValue = LucideIcons[key as keyof typeof LucideIcons];
-        return typeof exportValue === 'function' && // Icon components are functions
-               /^[A-Z]/.test(key) && // Icon names typically start with an uppercase letter
-               !excludedKeys.includes(key);
-      });
-      return filteredKeys.sort(); // Sort icon names alphabetically
-    } catch (error) {
-      // Intentionally not logging to console from here as per guidelines
-      return [];
-    }
-  }, []);
-
 
   const onSubmit = async (data: CategoryFormData) => {
     setIsSubmitting(true);
@@ -100,7 +106,6 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
       }
 
     } catch (error) {
-      // Intentionally not logging to console from here
       toast({ title: "Error", description: "Could not save category. Please try again.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
@@ -126,7 +131,7 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
                 <SelectValue placeholder="Select an icon" />
               </SelectTrigger>
               <SelectContent position="popper" className="max-h-60">
-                {(iconNames || []).map(iconName => {
+                {curatedIconNames.map(iconName => {
                   const IconComponent = LucideIcons[iconName as keyof typeof LucideIcons] as React.ElementType;
                   if (!IconComponent || typeof IconComponent !== 'function') return null;
                   return (
@@ -174,3 +179,4 @@ export function CategoryForm({ onSubmitSuccess, initialData, onCancel }: Categor
     </form>
   );
 }
+
